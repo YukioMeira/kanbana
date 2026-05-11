@@ -9,7 +9,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  useDroppable,
+  rectIntersection,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -113,6 +114,8 @@ function Column({
     on_hold: 'bg-yellow-900/40 text-yellow-400 border-yellow-900',
   }
 
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: status })
+
   return (
     <div className="flex w-72 shrink-0 flex-col rounded-xl border border-white/10 bg-gray-950">
       <div className="flex items-center justify-between px-4 py-3">
@@ -130,7 +133,10 @@ function Column({
       </div>
 
       <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-2 p-3 pt-0 min-h-[80px]">
+        <div
+          ref={setDropRef}
+          className={`flex flex-col gap-2 p-3 pt-0 min-h-[80px] flex-1 rounded-b-xl transition-colors ${isOver ? 'bg-white/5' : ''}`}
+        >
           {items.map((item) => (
             <SortableCard
               key={item.id}
@@ -140,8 +146,8 @@ function Column({
             />
           ))}
           {items.length === 0 && (
-            <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-white/5 text-xs text-gray-700">
-              vazio
+            <div className={`flex h-16 items-center justify-center rounded-lg border border-dashed text-xs transition-colors ${isOver ? 'border-white/20 text-gray-500' : 'border-white/5 text-gray-700'}`}>
+              solte aqui
             </div>
           )}
         </div>
@@ -180,14 +186,14 @@ export function KanbanBoard({ initialItems, projects, activeProjectId }: Props) 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveItem(null)
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over) return
 
     const draggedItem = items.find((i) => i.id === active.id)
     if (!draggedItem) return
 
-    // Determine target status: over could be a column id (Status) or another card id
-    const targetStatus = STATUS_COLUMNS.find((c) => c.status === over.id)?.status
-      ?? items.find((i) => i.id === over.id)?.status
+    // over.id is either a column status string or a card id
+    const targetStatus = (STATUS_COLUMNS.find((c) => c.status === over.id)?.status)
+      ?? (items.find((i) => i.id === over.id)?.status)
 
     if (!targetStatus || targetStatus === draggedItem.status) return
 
@@ -232,7 +238,7 @@ export function KanbanBoard({ initialItems, projects, activeProjectId }: Props) 
     <>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={rectIntersection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
