@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -40,6 +40,32 @@ const PRIORITY_STYLES: Record<string, string> = {
   low: 'bg-green-900/60 text-green-300 border border-green-800',
 }
 const PRIORITY_LABELS: Record<string, string> = { critical: 'Crítica', high: 'Alta', medium: 'Média', low: 'Baixa' }
+
+// ─── Column sort ───────────────────────────────────────────────────────────
+
+type ColumnSort = 'recent' | 'oldest' | 'priority' | 'category' | 'size'
+
+const SORT_OPTIONS: { value: ColumnSort; label: string; icon: string }[] = [
+  { value: 'recent',   label: 'Mais recente',  icon: '↓' },
+  { value: 'oldest',   label: 'Mais antigo',   icon: '↑' },
+  { value: 'priority', label: 'Prioridade',    icon: '!' },
+  { value: 'category', label: 'Categoria',     icon: '◆' },
+  { value: 'size',     label: 'Tamanho',       icon: '▤' },
+]
+
+const PRIORITY_ORDER = ['critical', 'high', 'medium', 'low']
+const CATEGORY_ORDER = ['bug', 'feature', 'debt', 'idea']
+const SIZE_ORDER = ['XL', 'L', 'M', 'S', 'XS']
+
+function sortItems(items: Item[], sort: ColumnSort): Item[] {
+  const copy = [...items]
+  if (sort === 'recent')   return copy.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  if (sort === 'oldest')   return copy.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
+  if (sort === 'priority') return copy.sort((a, b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority))
+  if (sort === 'category') return copy.sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category))
+  if (sort === 'size')     return copy.sort((a, b) => SIZE_ORDER.indexOf(a.size ?? 'XS') - SIZE_ORDER.indexOf(b.size ?? 'XS'))
+  return copy
+}
 
 // ─── SortableCard ──────────────────────────────────────────────────────────
 
@@ -115,6 +141,21 @@ function Column({
   }
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: status })
+  const [sort, setSort] = useState<ColumnSort>('recent')
+  const [sortOpen, setSortOpen] = useState(false)
+  const sortRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!sortOpen) return
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [sortOpen])
+
+  const activeSort = SORT_OPTIONS.find((o) => o.value === sort)!
+  const sortedItems = sortItems(items, sort)
 
   return (
     <div className="flex w-72 shrink-0 flex-col rounded-xl border border-white/10 bg-gray-950">
@@ -123,21 +164,57 @@ function Column({
           <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${COLUMN_HEADER[status]}`}>{label}</span>
           <span className="text-xs text-gray-600">{items.length}</span>
         </div>
-        <button
-          onClick={() => onAddClick(status)}
-          className="rounded p-1 text-gray-600 hover:bg-white/5 hover:text-gray-300 transition-colors"
-          title="Novo card"
-        >
-          +
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Sort button */}
+          <div ref={sortRef} className="relative">
+            <button
+              onClick={() => setSortOpen((v) => !v)}
+              className={`rounded px-2 py-1 text-xs transition-colors flex items-center gap-1 ${
+                sortOpen ? 'bg-white/10 text-gray-300' : 'text-gray-600 hover:bg-white/5 hover:text-gray-400'
+              }`}
+              title="Ordenar"
+            >
+              <span>{activeSort.icon}</span>
+              <span className="hidden sm:inline">{activeSort.label}</span>
+            </button>
+
+            {sortOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-white/10 bg-gray-900 py-1 shadow-xl">
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setSort(opt.value); setSortOpen(false) }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                      sort === opt.value
+                        ? 'text-indigo-300 bg-indigo-900/30'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                    }`}
+                  >
+                    <span className="w-3 text-center">{opt.icon}</span>
+                    {opt.label}
+                    {sort === opt.value && <span className="ml-auto text-indigo-400">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => onAddClick(status)}
+            className="rounded p-1 text-gray-600 hover:bg-white/5 hover:text-gray-300 transition-colors"
+            title="Novo card"
+          >
+            +
+          </button>
+        </div>
       </div>
 
-      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={sortedItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
         <div
           ref={setDropRef}
           className={`flex flex-col gap-2 p-3 pt-0 min-h-[80px] flex-1 rounded-b-xl transition-colors ${isOver ? 'bg-white/5' : ''}`}
         >
-          {items.map((item) => (
+          {sortedItems.map((item) => (
             <SortableCard
               key={item.id}
               item={item}
