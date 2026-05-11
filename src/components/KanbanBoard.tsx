@@ -48,27 +48,21 @@ function SortableCard({ item, project, onClick }: { item: Item; project?: Projec
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={onClick}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`group rounded-lg border border-white/10 bg-gray-900 p-3 transition-all ${
+      className={`group rounded-lg border border-white/10 bg-gray-900 p-3 transition-all cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-40 shadow-2xl' : 'hover:border-white/20'
       }`}
     >
       <div className="flex items-start gap-2">
-        {/* drag handle */}
-        <span
-          {...attributes}
-          {...listeners}
-          className="mt-0.5 cursor-grab text-gray-700 hover:text-gray-500 active:cursor-grabbing select-none"
-          title="Arrastar"
-        >
-          ⠿
-        </span>
-        <div className="min-w-0 flex-1" onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onClick()}>
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 mb-1">
             <span className={`text-xs shrink-0 ${CATEGORY_STYLES[item.category]}`}>{CATEGORY_ICONS[item.category]}</span>
             <span className="text-xs text-gray-600 font-mono">{item.id}</span>
           </div>
-          <p className="text-sm text-gray-100 leading-snug cursor-pointer">{item.title}</p>
+          <p className="text-sm text-gray-100 leading-snug">{item.title}</p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${PRIORITY_STYLES[item.priority]}`}>
               {PRIORITY_LABELS[item.priority]}
